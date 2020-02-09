@@ -1,21 +1,64 @@
 #ifndef STREAM_FROMFILE_H
 #define STREAM_FROMFILE_H
 
+#include <cstdio>
+
 #if defined(STREAM_GCC)
 	//libstdc++ is required
 	#include <ext/stdio_filebuf.h>
-	#define streambuf_fromfile_out(name,f) __gnu_cxx::stdio_filebuf<char> name(f,std::ios_base::out)
-	#define streambuf_fromfile_in(name,f) __gnu_cxx::stdio_filebuf<char> name(f,std::ios_base::in)
+	class streambuf_fromfile_out:
+	public __gnu_cxx::stdio_filebuf<char>{
+		public:
+		streambuf_fromfile_out(FILE *f):
+		__gnu_cxx::stdio_filebuf<char>(
+			fileno(f),std::ios_base::out
+		){}
+		streambuf_fromfile_out(int fd):
+		__gnu_cxx::stdio_filebuf<char>(
+			fd,std::ios_base::out
+		){}
+	};
+	class streambuf_fromfile_in:
+	public __gnu_cxx::stdio_filebuf<char>{
+		public:
+		streambuf_fromfile_in(FILE *f):
+		__gnu_cxx::stdio_filebuf<char>(
+			fileno(f),std::ios_base::in
+		){}
+		streambuf_fromfile_in(int fd):
+		__gnu_cxx::stdio_filebuf<char>(
+			fd,std::ios_base::in
+		){}
+	};
 #elif defined(STREAM_BOOST)
 	//libboost_iostreams is required
 	#include <boost/iostreams/device/file_descriptor.hpp>
 	#include <boost/iostreams/stream.hpp>
-	#define streambuf_fromfile_out(name,f) boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_sink> name(fileno(f),boost::iostreams::never_close_handle)
-	#define streambuf_fromfile_in(name,f) boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_source> name(fileno(f),boost::iostreams::never_close_handle)
+	class streambuf_fromfile_out:
+	public boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_sink>{
+		public:
+		streambuf_fromfile_out(FILE *f):
+		boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_sink>(
+			fileno(f),boost::iostreams::never_close_handle
+		){}
+		streambuf_fromfile_out(int fd):
+		boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_sink>(
+			fd,boost::iostreams::never_close_handle
+		){}
+	};
+	class streambuf_fromfile_in:
+	public boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_source>{
+		public:
+		streambuf_fromfile_in(FILE *f):
+		boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_source>(
+			fileno(f),boost::iostreams::never_close_handle
+		){}
+		streambuf_fromfile_in(int fd):
+		boost::iostreams::stream_buffer<boost::iostreams::file_descriptor_source>(
+			fd,boost::iostreams::never_close_handle
+		){}
+	};
 #elif defined(STREAM_PORTABLE)
-	#define streambuf_fromfile_out(name,f) boost::fdoutbuf name(fileno(f))
-	#define streambuf_fromfile_in(name,f) boost::fdinbuf name(fileno(f))
-
 /* The following code declares classes to read from and write to
  * file descriptore or file handles.
  *
@@ -24,10 +67,10 @@
  * for details and the latest version.
  *
  * - open:
- * 	- integrating BUFSIZ on some systems?
- * 	- optimized reading of multiple characters
- * 	- stream for reading AND writing
- * 	- i18n
+ *      - integrating BUFSIZ on some systems?
+ *      - optimized reading of multiple characters
+ *      - stream for reading AND writing
+ *      - i18n
  *
  * (C) Copyright Nicolai M. Josuttis 2001.
  * Permission to copy, use, modify, sell and distribute this software
@@ -35,22 +78,35 @@
  * This software is provided "as is" without express or implied
  * warranty, and with no claim as to its suitability for any purpose.
  *
- * Aug 05, 2001
+ * Version: Jul 28, 2002
+ * History:
+ *  Jul 28, 2002: bugfix memcpy() => memmove()
+ *                fdinbuf::underflow(): cast for return statements
+ *  Aug 05, 2001: first public version
  */
 
-// for EOF:
-#include <cstdio>
-// for memcpy():
+#include <istream>
+#include <ostream>
+#include <streambuf>
+
+// for memmove():
 #include <cstring>
-#include <unistd.h>
+
+#if defined(_WIN32) || (!defined(__GNUC__) && !defined(__clang__))
+	#include <io.h>
+#else
+	#include <unistd.h>
+#endif
 
 // BEGIN namespace BOOST
 namespace boost {
+
 
 /************************************************************
  * fdostream
  * - a stream that writes on a file descriptor
  ************************************************************/
+
 
 class fdoutbuf : public std::streambuf {
   protected:
@@ -87,9 +143,10 @@ class fdostream : public std::ostream {
     }
 };
 
+
 /************************************************************
  * fdistream
- * - a stream that writes on a file descriptor
+ * - a stream that reads on a file descriptor
  ************************************************************/
 
 class fdinbuf : public std::streambuf {
@@ -120,13 +177,14 @@ class fdinbuf : public std::streambuf {
   protected:
     // insert new characters into the buffer
     virtual int_type underflow () {
-#ifndef _MSC_VER
-using std::memcpy;
+#if defined(_WIN32) || (!defined(__GNUC__) && !defined(__clang__))
+#else
+        using std::memmove;
 #endif
 
         // is read position before end of buffer?
         if (gptr() < egptr()) {
-            return *gptr();
+            return traits_type::to_int_type(*gptr());
         }
 
         /* process size of putback area
@@ -142,7 +200,7 @@ using std::memcpy;
         /* copy up to pbSize characters previously read into
          * the putback area
          */
-        memcpy (buffer+(pbSize-numPutback), gptr()-numPutback,
+        memmove (buffer+(pbSize-numPutback), gptr()-numPutback,
                 numPutback);
 
         // read at most bufSize new characters
@@ -159,7 +217,7 @@ using std::memcpy;
               buffer+pbSize+num);           // end of buffer
 
         // return next character
-        return *gptr();
+        return traits_type::to_int_type(*gptr());
     }
 };
 
@@ -173,6 +231,31 @@ class fdistream : public std::istream {
 };
 
 } // END namespace boost
+
+class streambuf_fromfile_out:
+public boost::fdoutbuf{
+	public:
+	streambuf_fromfile_out(FILE *f):
+	boost::fdoutbuf(
+		fileno(f)
+	){}
+	streambuf_fromfile_out(int fd):
+	boost::fdoutbuf(
+		fd
+	){}
+};
+class streambuf_fromfile_in:
+public boost::fdinbuf{
+	public:
+	streambuf_fromfile_in(FILE *f):
+	boost::fdinbuf(
+		fileno(f)
+	){}
+	streambuf_fromfile_in(int fd):
+	boost::fdinbuf(
+		fd
+	){}
+};
 #else
 	#error define one of: STREAM_GCC, STREAM_BOOST, STREAM_PORTABLE
 #endif

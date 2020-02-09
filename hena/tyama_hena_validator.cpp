@@ -12,7 +12,7 @@ istream *ppin;
 ostream *ppout;
 int testcase=0;
 
-void test(string input, string expect){
+void test(const string &input, const string &expect){
 	istream &pin=*ppin;
 	ostream &pout=*ppout;
 	string answer;
@@ -60,11 +60,11 @@ int main(int argc, char **argv){
 	close(fd_in[0]);
 	close(fd_out[1]);
 	FILE *fin=fdopen(fd_out[0],"r");
-	streambuf_fromfile_in(bin,fin);
+	streambuf_fromfile_in bin(fin);
 	ppin=new istream(&bin);
 
 	FILE *fout=fdopen(fd_in[1],"w");
-	streambuf_fromfile_out(bout,fout);
+	streambuf_fromfile_out bout(fout);
 	ppout=new ostream(&bout);
 
 	void testloader();

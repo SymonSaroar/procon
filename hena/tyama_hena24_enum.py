@@ -5,11 +5,43 @@ import sys
 import itertools
 from functools import partial,reduce
 
+'''
 from math import sqrt
 try:
-	from scipy.special import cbrt # thx @ryosy383
+	#from scipy.special import cbrt # thx @ryosy383
+	from numpy import cbrt
 except ImportError:
-	cbrt=lambda n: n**(1-2.0/3)
+	try:
+		import ctypes
+		if sys.platform.startswith('linux'):
+			libm=ctypes.cdll.LoadLibrary('libm.so.6')
+		elif sys.platform=='darwin':
+			libm=ctypes.cdll.LoadLibrary('libSystem.dylib')
+		elif sys.platform=='win32':
+			libm=ctypes.cdll.LoadLibrary('msvcr120.dll')
+		else:
+			raise ImportError
+		cbrt=lambda n:libm.cbrt(ctypes.c_double(n))
+		libm.cbrt.restype=ctypes.c_double
+	except ImportError:
+		cbrt=lambda n: n**(1-2.0/3)
+'''
+
+def isqrt(n):
+	if n<=0: return 0
+	if n<4: return 1
+	x,y=0,n
+	while x!=y and x+1!=y:
+		x,y=y,(n//y+y)//2
+	return x
+def icbrt(n):
+	if n<0: return icbrt(-n)
+	if n==0: return 0
+	if n<8: return 1
+	x,y=0,n
+	while x!=y and x+1!=y:
+		x,y=y,(n//y//y+y*2)//3
+	return x
 
 if sys.version_info[0]>=3: raw_input=input
 
@@ -43,8 +75,8 @@ def drop_n(check,n,prev):
 		a=next(prev)
 		if not check(i,n): yield a
 
-is_sq=lambda n: int(sqrt(float(n)))**2==n
-is_cb=lambda n: int(cbrt(float(n)))**3==n
+is_sq=lambda n: isqrt(n)**2==n
+is_cb=lambda n: icbrt(n)**3==n
 is_multiple=lambda i,n: i%n==0
 is_le=lambda i,n: i<=n
 
@@ -65,11 +97,15 @@ if __name__=='__main__':
 	try:
 		while True:
 			#cS => f['S'](f['c'](itertools.count(1)))
+			'''
 			print(','.join(
 				map(str,itertools.islice(
 					reduce(lambda s,e:f[e](s),raw_input().rstrip(),itertools.count(1)),
 				10))
 			))
+			'''
+			g=reduce(lambda s,e:f[e](s),raw_input().rstrip(),itertools.count(1))
+			print(','.join(str(next(g)) for i in range(10)))
 			sys.stdout.flush()
 	except EOFError:
 		pass

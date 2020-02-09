@@ -1,5 +1,5 @@
 #include <string>
-void test(std::string input, std::string expect);
+void test(const std::string &input, const std::string &expect);
 void testloader(){ //insert test cases here
 /*0*/ test( "2,3,5,4:85", "S" );    
 /*1*/ test( "1,2,3,4:1", "E" );    
@@ -55,4 +55,11 @@ void testloader(){ //insert test cases here
 /*51*/ test( "1,3,4,5:93", "W" );    
 /*52*/ test( "2,4,8,1:94", "W" );    
 /*53*/ test( "3,6,1,7:99", "S" );
+
+test( "1234,2345,3456,4567:978593417", "E" );
+test( "1234,2345,3456,4567:978593418", "S" );
+test( "31415,92653,58979,32384:9812336139", "W" );
+test( "31415,92653,58979,32384:9812336140", "S" );
+test( "314159,265358,979323,84626:89099331642", "S" );
+test( "314159,265358,979323,84626:89099331643", "W" );
 }

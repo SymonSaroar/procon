@@ -1,3 +1,5 @@
+//Windows should be 7 or later if compiled with GCC.
+
 #include <stdio.h>
 #include <math.h>
 int main(){
